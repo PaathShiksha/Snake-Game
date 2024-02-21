@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Snake Game</title>
+  <meta charset="UTF-8">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      position: relative;
+    }
+
+    body {
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas {
+      border: 1px solid white;
+    }
+
+    #score {
+      background-color: teal;
+      width: 180px;
+      margin: 10px;
+      padding: 10px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    #level {
+      background-color: teal;
+      width: 180px;
+      margin: 10px;
+      padding: 10px;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    #gameOver {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 20px;
+      font-size: 24px;
+    }
+
+    #playAgainButton {
+      background-color: teal;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+  </style>
+</head>
+<body>
+<div id="score"></div>
+<div id="level"></div>
+<div id="gameOver">
+  Game Over! </br>
+  <button id="playAgainButton">Play Again</button>
+</div>
+<audio id="eatSound">
+  <source src="eat.mp3" type="audio/wav">
+</audio>
+<audio id="deathSound">
+  <source src="death.mp3" type="audio/wav">
+</audio>
+<canvas width="600" height="600" id="game"></canvas>
+<script>
+// Define variables
+var canvas = document.getElementById('game');
+var context = canvas.getContext('2d');
+var grid = 16;
+var count = 0;
+var score = 0;
+var level = 1;
+var speed = 10; // Initial speed
+var gameOver = false;
+
+// Define snake object
+var snake = {
+  x: 160,
+  y: 160,
+  dx: grid,
+  dy: 0,
+  cells: [],
+  maxCells: 4,
+  gradient: context.createLinearGradient(0, 0, canvas.width, canvas.height)
+};
+
+// Define gradient colors
+snake.gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+snake.gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
+
+// Define apple image
+var appleImg = new Image();
+appleImg.src = 'apple.png'; // Replace 'apple.png' with the path to your apple image
+appleImg.onload = function() {
+  requestAnimationFrame(loop); // Start the game loop once the image is loaded
+};
+
+// Define apple object
+var apple = {
+  x: getRandomInt(0, 25) * grid,
+  y: getRandomInt(0, 25) * grid
+};
+
+// Define audio elements
+var eatSound = document.getElementById('eatSound');
+var deathSound = document.getElementById('deathSound');
+
+// Define play again button
+var playAgainButton = document.getElementById('playAgainButton');
+playAgainButton.addEventListener('click', function() {
+  resetGame(); // Reset the game when the play again button is clicked
+  gameOver = false;
+  document.getElementById('gameOver').style.display = 'none';
+  requestAnimationFrame(loop); // Start the game loop again
+});
+
+// Function to get a random integer within a range
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+// Function to play the eat sound
+function playEatSound() {
+  eatSound.play();
+}
+
+// Function to play the death sound
+function playDeathSound() {
+  deathSound.play();
+}
+
+// Function to draw the snake's head
+function drawSnakeHead(x, y) {
+  // Draw snake's head shape
+  context.beginPath();
+  context.moveTo(x + 5, y);
+  context.arcTo(x + grid, y, x + grid, y + grid, 5);
+  context.arcTo(x + grid, y + grid, x, y + grid, 5);
+  context.arcTo(x, y + grid, x, y, 5);
+  context.arcTo(x, y, x + grid, y, 5);
+  context.closePath();
+  context.fill();
+
+  // Draw snake's eyes
+  context.fillStyle = 'black';
+  context.beginPath();
+  context.arc(x + 5, y + 5, 2, 0, Math.PI * 2);
+  context.arc(x + grid - 5, y + 5, 2, 0, Math.PI * 2);
+  context.fill();
+
+  // Draw snake's mouth
+  context.beginPath();
+  context.moveTo(x + 2, y + grid - 8);
+  context.lineTo(x + grid - 2, y + grid - 8);
+  context.stroke();
+
+  // Draw snake's teeth
+  context.fillStyle = 'lightgreen';
+  context.fillRect(x + 2, y + grid - 6, 2, 2);
+  context.fillRect(x + 5, y + grid - 6, 2, 2);
+  context.fillRect(x + 8, y + grid - 6, 2, 2);
+  context.fillRect(x + 11, y + grid - 6, 2, 2);
+  context.fillRect(x + 14, y + grid - 6, 2, 2);
+}
+
+// Function to draw the score
+function drawScore() {
+  document.getElementById('score').innerHTML = 'Score: ' + score;
+}
+
+// Function to draw the level
+function drawLevel() {
+  document.getElementById('level').innerHTML = 'Level: ' + level;
+}
+
+// Function to draw the game over message
+function drawGameOver() {
+  document.getElementById('gameOver').style.display = 'block';
+}
+
+// Function to reset the game
+function resetGame() {
+  score = 0;
+  level = 1;
+  speed = 10;
+  snake = {
+    x: 160,
+    y: 160,
+    dx: grid,
+    dy: 0,
+    cells: [],
+    maxCells: 4,
+    gradient: context.createLinearGradient(0, 0, canvas.width, canvas.height)
+  };
+  snake.gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+  snake.gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
+  apple = {
+    x: getRandomInt(0, 25) * grid,
+    y: getRandomInt(0, 25) * grid
+  };
+}
+
+// Function for the game loop
+function loop() {
+  requestAnimationFrame(loop);
+
+  if (gameOver) {
+    drawGameOver();
+    return;
+  }
+
+  if (++count < speed) {
+    return;
+  }
+
+  count = 0;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  snake.x += snake.dx;
+  snake.y += snake.dy;
+
+  if (snake.x < 0 || snake.x >= canvas.width || snake.y < 0 || snake.y >= canvas.height) {
+    playDeathSound();
+    gameOver = true;
+    return;
+  }
+
+  snake.cells.unshift({x: snake.x, y: snake.y});
+
+  if (snake.cells.length > snake.maxCells) {
+    snake.cells.pop();
+  }
+
+  context.drawImage(appleImg, apple.x, apple.y, grid, grid);
+
+  context.fillStyle = snake.gradient;
+  snake.cells.forEach(function(cell, index) {
+    if (index === 0) {
+      drawSnakeHead(cell.x, cell.y);
+    } else {
+      context.fillRect(cell.x, cell.y, grid, grid);
+    }
+
+    if (cell.x === apple.x && cell.y === apple.y) {
+      snake.maxCells++;
+      score += 10;
+      playEatSound();
+      if (score % 50 === 0) {
+        level++;
+        speed -= 0.5;
+        if (speed < 1) speed = 1;
+      }
+      apple.x = getRandomInt(0, 25) * grid;
+      apple.y = getRandomInt(0, 25) * grid;
+    }
+
+    for (var i = index + 1; i < snake.cells.length; i++) {
+      if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+        playDeathSound();
+        gameOver = true;
+        return;
+      }
+    }
+  });
+
+  drawScore();
+  drawLevel();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.which === 37 && snake.dx === 0) {
+    snake.dx = -grid;
+    snake.dy = 0;
+  }
+  else if (e.which === 38 && snake.dy === 0) {
+    snake.dy = -grid;
+    snake.dx = 0;
+  }
+  else if (e.which === 39 && snake.dx === 0) {
+    snake.dx = grid;
+    snake.dy = 0;
+  }
+  else if (e.which === 40 && snake.dy === 0) {
+    snake.dy = grid;
+    snake.dx = 0;
+  }
+});
+</script>
+</body>
+</html>
